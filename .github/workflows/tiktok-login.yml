@@ -1,0 +1,54 @@
+name: TikTok Login - Manual Setup
+
+# This workflow is ONLY for initial TikTok login setup
+# Run this ONCE manually before the automation starts
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tiktok-login:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Restore TikTok session if exists
+        uses: actions/cache/restore@v4
+        with:
+          path: data/tiktok-session.json
+          key: tiktok-session-
+          restore-keys: |
+            tiktok-session-
+
+      - name: Manual TikTok Login
+        run: npm run test:tiktok
+        timeout-minutes: 10
+
+      - name: Save TikTok session
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/tiktok-session.json
+          key: tiktok-session-${{ github.run_id }}
+
+      - name: Upload session as artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiktok-session
+          path: data/tiktok-session.json
+          retention-days: 90
