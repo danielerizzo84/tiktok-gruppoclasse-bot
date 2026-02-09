@@ -19,8 +19,8 @@ export class TikTokClient {
         logger.step('Initializing TikTok browser...');
 
         this.browser = await chromium.launch({
-            headless: false, // Set to false to see what's happening
-            slowMo: 100,
+            headless: true, // Force headless for GitHub Actions
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
 
         // Create context with persistent storage
