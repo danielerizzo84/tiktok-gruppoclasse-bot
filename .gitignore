@@ -15,6 +15,7 @@ videos/
 
 # Data
 data/*.json
+!data/content-db.json
 !data/.gitkeep
 
 # Playwright
