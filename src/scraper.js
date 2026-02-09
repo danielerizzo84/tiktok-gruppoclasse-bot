@@ -1,7 +1,7 @@
-import { chromium } from 'playwright';
 import { logger } from './logger.js';
 import config from './config.js';
 import fs from 'fs';
+import path from 'path';
 
 export class ContentScraper {
     constructor() {
@@ -16,79 +16,39 @@ export class ContentScraper {
         logger.success('Browser initialized');
     }
 
-    async scrapePerle() {
-        try {
-            logger.step(`Scraping perle from ${config.scraping.url}`);
 
-            await this.page.goto(config.scraping.url, {
-                waitUntil: 'networkidle',
-                timeout: config.scraping.timeout,
-            });
+    // Extract ID from URL or use index
+    const urlMatch = href.match(/\/(\d+|[a-zA-Z0-9-]+)\/?$/);
+    const id = urlMatch ? urlMatch[1] : `perla-${index}`;
 
-            // Wait for content to load
-            await this.page.waitForSelector('article, .post, .entry, .perla', { timeout: 10000 });
-
-            // Extract perle from the page
-            const perle = await this.page.evaluate(() => {
-                const items = [];
-
-                // Try common selectors for blog posts/articles
-                const selectors = [
-                    'article',
-                    '.post',
-                    '.entry',
-                    '.perla',
-                    '.story',
-                    '.content-item'
-                ];
-
-                let elements = [];
-                for (const selector of selectors) {
-                    elements = document.querySelectorAll(selector);
-                    if (elements.length > 0) break;
-                }
-
-                elements.forEach((el, index) => {
-                    // Try to find text content
-                    const textElement = el.querySelector('p, .text, .content, .description, .body');
-                    const text = textElement ? textElement.innerText.trim() : el.innerText.trim();
-
-                    // Try to find a link or ID
-                    const linkElement = el.querySelector('a[href]');
-                    const href = linkElement ? linkElement.href : '';
-
-                    // Extract ID from URL or use index
-                    const urlMatch = href.match(/\/(\d+|[a-zA-Z0-9-]+)\/?$/);
-                    const id = urlMatch ? urlMatch[1] : `perla-${index}`;
-
-                    if (text && text.length > 10) { // Filter out very short texts
-                        items.push({
-                            id,
-                            text: text.substring(0, 500), // Limit to 500 chars
-                            url: href,
-                            scrapedAt: new Date().toISOString(),
-                        });
-                    }
+    if(text && text.length > 10) { // Filter out very short texts
+    items.push({
+        id,
+        text: text.substring(0, 500), // Limit to 500 chars
+        url: href,
+        scrapedAt: new Date().toISOString(),
+    });
+}
                 });
 
-                return items;
+return items;
             });
 
-            logger.success(`Scraped ${perle.length} perle`);
-            return perle;
+logger.success(`Scraped ${perle.length} perle`);
+return perle;
 
         } catch (error) {
-            logger.error(`Error scraping perle: ${error.message}`);
-            throw error;
-        }
+    logger.error(`Error scraping perle: ${error.message}`);
+    throw error;
+}
     }
 
     async close() {
-        if (this.browser) {
-            await this.browser.close();
-            logger.step('Browser closed');
-        }
+    if (this.browser) {
+        await this.browser.close();
+        logger.step('Browser closed');
     }
+}
 }
 
 // Database helper functions
