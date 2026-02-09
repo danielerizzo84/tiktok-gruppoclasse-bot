@@ -1,35 +1,26 @@
 # Dependencies
 node_modules/
 package-lock.json
-
 # Environment variables
 .env
-
 # Logs
 logs/
 *.log
-
 # Generated videos
 videos/
 !videos/.gitkeep
-
 # Data
 data/*.json
-!data/content-db.json
 !data/.gitkeep
-
 # Playwright
 .playwright/
-
 # OS
 .DS_Store
 Thumbs.db
-
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-
 # PM2
 .pm2/
