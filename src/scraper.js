@@ -2,84 +2,108 @@ import { logger } from './logger.js';
 import config from './config.js';
 import fs from 'fs';
 import path from 'path';
-
 export class ContentScraper {
     constructor() {
         this.browser = null;
         this.page = null;
     }
-
     async initialize() {
-        logger.step('Initializing browser for scraping...');
-        this.browser = await chromium.launch({ headless: true });
-        this.page = await this.browser.newPage();
-        logger.success('Browser initialized');
+        // No browser needed for Google Sheets CSV, but keeping method for compatibility
+        logger.step('Initializing content fetcher...');
     }
-
-
-    // Extract ID from URL or use index
-    const urlMatch = href.match(/\/(\d+|[a-zA-Z0-9-]+)\/?$/);
-    const id = urlMatch ? urlMatch[1] : `perla-${index}`;
-
-    if(text && text.length > 10) { // Filter out very short texts
-    items.push({
-        id,
-        text: text.substring(0, 500), // Limit to 500 chars
-        url: href,
-        scrapedAt: new Date().toISOString(),
-    });
-}
-                });
-
-return items;
-            });
-
-logger.success(`Scraped ${perle.length} perle`);
-return perle;
-
-        } catch (error) {
-    logger.error(`Error scraping perle: ${error.message}`);
-    throw error;
-}
-    }
-
     async close() {
-    if (this.browser) {
-        await this.browser.close();
-        logger.step('Browser closed');
+        // Nothing to close
+    }
+    async getPerle() {
+        return new Promise(async (resolve, reject) => {
+            try {
+                logger.step('Fetching perle from Google Sheet...');
+                // Public Google Sheet CSV URL
+                const sheetId = '1RDwxQMQCIBVigJijppbNgAtNPQZ7MNf9z7zYJn_PZm8';
+                const gid = '1971420613'; // GID for "Perle" tab
+                const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+                // Fetch CSV
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Sheet fetch failed: ${response.statusText}`);
+                const csvText = await response.text();
+                // Parse CSV (simple parser)
+                const rows = csvText.split('\n').map(row => {
+                    // Handle quoted CSV fields
+                    const regex = /(?:^|,)(?:"([^"]*)"|([^",]*))/g;
+                    const cols = [];
+                    let match;
+                    while ((match = regex.exec(row))) {
+                        cols.push(match[1] ? match[1] : match[2]); // Quoted or unquoted
+                    }
+                    return cols;
+                });
+                // Skip header row
+                const dataRows = rows.slice(1);
+                const perle = [];
+                let count = 0;
+                for (const row of dataRows) {
+                    // Column A is "testo" (index 0)
+                    const text = row[0] ? row[0].trim() : '';
+                    if (text && text.length > 10) {
+                        // Generate a consistent ID based on text hash or content
+                        // Using a simple hash to keep ID stable
+                        const safeText = text.substring(0, 20).replace(/[^a-z0-9]/gi, '');
+                        const id = `perla-${safeText}-${text.length}`;
+                        perle.push({
+                            id: id,
+                            text: text,
+                            author: row[2] || 'Anonimo', // Column C is autore
+                            category: row[1] || 'Generale' // Column B is categoria
+                        });
+                        count++;
+                    }
+                }
+                logger.success(`Fetched ${count} perle from Google Sheet`);
+                resolve(perle);
+            } catch (error) {
+                logger.error('Error fetching from Google Sheet:', error);
+                reject(error);
+            }
+        });
+    }
+    // Alias for backward compatibility if main.js calls scrapePerle
+    async scrapePerle() {
+        return this.getPerle();
     }
 }
-}
-
 // Database helper functions
 export class ContentDatabase {
     constructor() {
         this.dbPath = config.db.contentFile;
         this.ensureDatabase();
     }
-
     ensureDatabase() {
+        // Ensure data directory exists
+        const dir = path.dirname(this.dbPath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
         if (!fs.existsSync(this.dbPath)) {
             logger.step('Creating content database...');
             fs.writeFileSync(this.dbPath, JSON.stringify({ perle: [] }, null, 2));
             logger.success('Database created');
         }
     }
-
     read() {
-        const data = fs.readFileSync(this.dbPath, 'utf-8');
-        return JSON.parse(data);
+        try {
+            const data = fs.readFileSync(this.dbPath, 'utf-8');
+            return JSON.parse(data);
+        } catch (e) {
+            return { perle: [] };
+        }
     }
-
     write(data) {
         fs.writeFileSync(this.dbPath, JSON.stringify(data, null, 2));
     }
-
     getUnpublishedPerle() {
         const db = this.read();
         return db.perle.filter(p => !p.published);
     }
-
     markAsPublished(perlaId, tiktokUrl) {
         const db = this.read();
         const perla = db.perle.find(p => p.id === perlaId);
@@ -91,13 +115,10 @@ export class ContentDatabase {
             logger.success(`Marked perla ${perlaId} as published`);
         }
     }
-
     addPerle(newPerle) {
         const db = this.read();
         const existingIds = new Set(db.perle.map(p => p.id));
-
         const toAdd = newPerle.filter(p => !existingIds.has(p.id));
-
         if (toAdd.length > 0) {
             db.perle.push(...toAdd.map(p => ({ ...p, published: false })));
             this.write(db);
@@ -105,37 +126,6 @@ export class ContentDatabase {
         } else {
             logger.step('No new perle to add');
         }
-
         return toAdd.length;
     }
-}
-
-// Test function
-async function test() {
-    const scraper = new ContentScraper();
-    const db = new ContentDatabase();
-
-    try {
-        await scraper.initialize();
-        const perle = await scraper.scrapePerle();
-
-        console.log('\n=== SCRAPED PERLE ===');
-        perle.forEach((p, i) => {
-            console.log(`\n${i + 1}. ID: ${p.id}`);
-            console.log(`   Text: ${p.text.substring(0, 100)}...`);
-            console.log(`   URL: ${p.url}`);
-        });
-
-        db.addPerle(perle);
-
-    } catch (error) {
-        logger.error('Test failed:', error);
-    } finally {
-        await scraper.close();
-    }
-}
-
-// Run test if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-    test();
 }
