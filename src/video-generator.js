@@ -15,6 +15,21 @@ export class VideoGenerator {
     }
 
     /**
+     * Remove emojis and special characters that don't render well
+     */
+    removeEmojis(text) {
+        return text
+            .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
+            .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Misc symbols
+            .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport
+            .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Misc symbols
+            .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Dingbats
+            .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental symbols
+            .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Extended symbols
+            .trim();
+    }
+
+    /**
      * Generate audio from text using Google TTS
      */
     async generateAudio(text, outputPath) {
@@ -49,43 +64,62 @@ export class VideoGenerator {
         const canvas = createCanvas(this.width, this.height);
         const ctx = canvas.getContext('2d');
 
-        // Background gradient
-        const gradient = ctx.createLinearGradient(0, 0, 0, this.height);
-        gradient.addColorStop(0, '#1a1a2e');
-        gradient.addColorStop(0.5, '#16213e');
-        gradient.addColorStop(1, '#0f3460');
-        ctx.fillStyle = gradient;
+        // WhatsApp-style background
+        ctx.fillStyle = '#ECE5DD'; // WhatsApp beige background
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // Add decorative elements
-        ctx.fillStyle = 'rgba(255, 107, 107, 0.1)';
-        ctx.beginPath();
-        ctx.arc(this.width * 0.2, this.height * 0.15, 150, 0, Math.PI * 2);
-        ctx.fill();
+        // Subtle pattern overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.02)';
+        for (let i = 0; i < this.height; i += 60) {
+            ctx.fillRect(0, i, this.width, 30);
+        }
 
-        ctx.fillStyle = 'rgba(78, 205, 196, 0.1)';
-        ctx.beginPath();
-        ctx.arc(this.width * 0.8, this.height * 0.85, 200, 0, Math.PI * 2);
-        ctx.fill();
+        // Chat bubble container
+        const bubbleMargin = 80;
+        const bubbleY = 280;
+        const bubbleHeight = this.height - bubbleY - 200;
 
-        // Title at top
-        ctx.fillStyle = config.video.accentColor;
-        ctx.font = 'bold 60px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('GRUPPO CLASSE', this.width / 2, 150);
+        // Shadow for bubble
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+        ctx.shadowBlur = 15;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 5;
 
+        // WhatsApp green bubble
+        ctx.fillStyle = '#DCF8C6'; // WhatsApp light green
+        this.roundRect(ctx, bubbleMargin, bubbleY, this.width - (bubbleMargin * 2), bubbleHeight, 20);
+
+        // Reset shadow
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        // Header background
+        ctx.fillStyle = '#128C7E'; // WhatsApp dark green
+        ctx.fillRect(0, 0, this.width, 250);
+
+        // Title
         ctx.fillStyle = '#ffffff';
-        ctx.font = '40px Arial';
-        ctx.fillText('Le Perle 💎', this.width / 2, 220);
+        ctx.font = 'bold 70px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('gruppoclasse.it', this.width / 2, 130);
 
-        // Main text (perla)
-        ctx.fillStyle = config.video.textColor;
-        ctx.font = 'bold 48px Arial';
+        ctx.fillStyle = '#E8F5E9';
+        ctx.font = '45px Arial';
+        ctx.fillText('Le Perle', this.width / 2, 200);
+
+        // Clean text from emojis
+        text = this.removeEmojis(text);
+
+        // Main text (perla) - darker for readability on green
+        ctx.fillStyle = '#1a1a1a';
+        ctx.font = 'bold 52px Arial';
         ctx.textAlign = 'center';
 
         // Word wrap
-        const maxWidth = this.width - 120;
-        const lineHeight = 70;
+        const maxWidth = this.width - 200; // More padding for bubble
+        const lineHeight = 75;
         const words = text.split(' ');
         const lines = [];
         let currentLine = '';
@@ -102,19 +136,21 @@ export class VideoGenerator {
         });
         lines.push(currentLine);
 
-        // Center text vertically
+        // Center text vertically inside bubble
         const totalHeight = lines.length * lineHeight;
-        let y = (this.height - totalHeight) / 2 + 100;
+        let y = 350 + (bubbleHeight - totalHeight) / 2;
 
         lines.forEach(line => {
             ctx.fillText(line.trim(), this.width / 2, y);
             y += lineHeight;
         });
 
-        // Footer
-        ctx.font = '35px Arial';
-        ctx.fillStyle = '#888';
-        ctx.fillText('gruppoclasse.it', this.width / 2, this.height - 80);
+        // WhatsApp-style timestamp footer
+        ctx.font = '32px Arial';
+        ctx.fillStyle = '#128C7E';
+        const now = new Date();
+        const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+        ctx.fillText(timeStr, this.width - 150, this.height - 80);
 
         // Save to file
         const buffer = canvas.toBuffer('image/png');
@@ -122,6 +158,24 @@ export class VideoGenerator {
 
         logger.success(`Text image created: ${outputPath}`);
         return outputPath;
+    }
+
+    /**
+   * Helper to draw rounded rectangles
+   */
+    roundRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        ctx.fill();
     }
 
     /**
