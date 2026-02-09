@@ -1,0 +1,87 @@
+name: TikTok Automation - Scheduled Posts
+
+on:
+  # Schedule: Runs at 10:00 and 18:00 UTC+1 (Italy time)
+  schedule:
+    - cron: '0 9 * * *'  # 10:00 CET (9:00 UTC)
+    - cron: '0 17 * * *' # 18:00 CET (17:00 UTC)
+  
+  # Manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  post-to-tiktok:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Setup FFmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v3
+
+      - name: Restore TikTok session cache
+        id: cache-session
+        uses: actions/cache/restore@v4
+        with:
+          path: data/tiktok-session.json
+          key: tiktok-session-${{ github.run_id }}
+          restore-keys: |
+            tiktok-session-
+
+      - name: Run automation
+        env:
+          HASHTAGS: ${{ secrets.HASHTAGS }}
+          SCHEDULE_TIME_1: "0 10 * * *"
+          SCHEDULE_TIME_2: "0 18 * * *"
+        run: npm start -- --once
+
+      - name: Save TikTok session cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/tiktok-session.json
+          key: tiktok-session-${{ github.run_id }}
+
+      - name: Upload video artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-videos-${{ github.run_id }}
+          path: videos/*.mp4
+          retention-days: 7
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ github.run_id }}
+          path: logs/
+          retention-days: 30
+
+      - name: Commit updated database
+        if: success()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/content-db.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update content database [skip ci]"
+
+      - name: Push changes
+        if: success()
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
