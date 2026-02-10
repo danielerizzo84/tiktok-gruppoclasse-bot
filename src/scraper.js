@@ -26,16 +26,24 @@ export class ContentScraper {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`Sheet fetch failed: ${response.statusText}`);
                 const csvText = await response.text();
-                // Parse CSV (simple parser)
-                const rows = csvText.split('\n').map(row => {
-                    // Handle quoted CSV fields
-                    const regex = /(?:^|,)(?:"([^"]*)"|([^",]*))/g;
-                    const cols = [];
-                    let match;
-                    while ((match = regex.exec(row))) {
-                        cols.push(match[1] ? match[1] : match[2]); // Quoted or unquoted
+                // Parse CSV (robust state-machine parser to avoid infinite loops)
+                const rows = csvText.split('\n').map(line => {
+                    const result = [];
+                    let cur = '';
+                    let inQuote = false;
+                    for (let i = 0; i < line.length; i++) {
+                        const char = line[i];
+                        if (char === '"') {
+                            inQuote = !inQuote;
+                        } else if (char === ',' && !inQuote) {
+                            result.push(cur.trim());
+                            cur = '';
+                        } else {
+                            cur += char;
+                        }
                     }
-                    return cols;
+                    result.push(cur.trim());
+                    return result;
                 });
                 // Skip header row
                 const dataRows = rows.slice(1);
