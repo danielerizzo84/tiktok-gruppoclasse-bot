@@ -434,7 +434,9 @@
       "text": "Ciao a tutte, per la festa di classe confermate se portate qualcosa: dolce, salato o solo vostro figlio iperattivo.",
       "author": "Mamma event planner 2A",
       "category": "Gite / feste",
-      "published": false
+      "published": true,
+      "publishedAt": "2026-02-10T11:40:09.729Z",
+      "tiktokUrl": "delivered-to-telegram"
     },
     {
       "id": "perla-Buonaseraqualcuno-118",
