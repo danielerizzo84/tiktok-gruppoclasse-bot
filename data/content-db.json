@@ -317,7 +317,9 @@
       "text": "Mamme, scusate, la maestra ha detto di ‘ripassare le tabelline veloci’. Quali sono quelle veloci? Perché mio figlio le fa tutte lente",
       "author": "Serenella",
       "category": "Compiti",
-      "published": false
+      "published": true,
+      "publishedAt": "2026-02-21T09:55:24.277Z",
+      "tiktokUrl": "delivered-to-telegram"
     },
     {
       "id": "perla-ScusateMammehanno-42",
